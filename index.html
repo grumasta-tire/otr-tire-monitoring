@@ -396,6 +396,17 @@
       : '<div class="no-data">No records match your search.</div>';
   }
 
+  function jsonp(url) {
+    return new Promise((resolve, reject) => {
+      const cb = 'cb_' + Date.now();
+      const script = document.createElement('script');
+      window[cb] = (data) => { resolve(data); delete window[cb]; script.remove(); };
+      script.onerror = () => { reject(new Error('JSONP failed')); delete window[cb]; script.remove(); };
+      script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+      document.head.appendChild(script);
+    });
+  }
+
   async function loadFromSheet() {
     const url = document.getElementById('api-url').value.trim();
     if (!url) {
@@ -406,15 +417,14 @@
     localStorage.setItem('otr_api_url', url);
     showMsg('settings-msg', 'Connecting...', '');
     try {
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await jsonp(url);
       tireData = Array.isArray(data) ? data : [];
       renderDashboard();
       renderList();
       document.getElementById('topbar-sub').textContent = `${tireData.length} records loaded`;
       showMsg('settings-msg', `Successfully loaded ${tireData.length} record(s).`, 'success');
     } catch (e) {
-      showMsg('settings-msg', 'Connection failed. Check your URL and make sure the deployment is set to "Anyone".', 'error');
+      showMsg('settings-msg', 'Connection failed. Check your URL and deployment settings.', 'error');
     }
   }
 
@@ -423,8 +433,7 @@
     const btn = document.getElementById('refresh-btn');
     btn.querySelector('svg').classList.add('spinning');
     try {
-      const res = await fetch(API_URL);
-      const data = await res.json();
+      const data = await jsonp(API_URL);
       tireData = Array.isArray(data) ? data : [];
       renderDashboard();
       renderList();
@@ -462,11 +471,8 @@
     };
     showMsg('add-msg', 'Saving...', '');
     try {
-      await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(record)
-      });
+      const params = new URLSearchParams({ data: JSON.stringify(record) });
+      await jsonp(API_URL + '?' + params.toString());
       tireData.push(record);
       renderDashboard();
       renderList();
