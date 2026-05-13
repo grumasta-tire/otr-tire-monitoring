@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>OTR Tire Monitor</title>
+<style>
+  :root {
+    --blue: #185FA5;
+    --blue-light: #E6F1FB;
+    --blue-dark: #0C447C;
+    --green: #0F6E56;
+    --green-light: #EAF3DE;
+    --green-dark: #27500A;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --amber-light: #FAEEDA;
+    --amber-dark: #854F0B;
+    --bg: #f4f4f2;
+    --surface: #ffffff;
+    --surface2: #f1efe8;
+    --text: #1a1a18;
+    --text2: #5f5e5a;
+    --text3: #888780;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.2);
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --surface: #2c2c2a;
+      --surface2: #222220;
+      --text: #f1efe8;
+      --text2: #b4b2a9;
+      --text3: #888780;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.2);
+      --blue-light: #0c2d4a;
+      --green-light: #0a2018;
+      --red-light: #2d1010;
+      --amber-light: #2d1e08;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif; color: var(--text); }
+  body { display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+  /* Top bar */
+  .topbar {
+    background: var(--surface);
+    padding: 14px 16px 12px;
+    border-bottom: 0.5px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .topbar-icon { width: 34px; height: 34px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .topbar-icon svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .topbar-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .refresh-btn { width: 34px; height: 34px; border-radius: 8px; border: 0.5px solid var(--border2); background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text2); }
+  .refresh-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+  /* Nav */
+  .nav { display: flex; background: var(--surface); border-bottom: 0.5px solid var(--border); position: sticky; top: 60px; z-index: 9; }
+  .nav-btn { flex: 1; padding: 8px 2px 9px; font-size: 10px; color: var(--text3); background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; border-bottom: 2px solid transparent; transition: color 0.15s; }
+  .nav-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .nav-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Screens */
+  .screen { display: none; padding: 14px; flex: 1; }
+  .screen.active { display: block; }
+
+  /* Stats */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .stat-card { background: var(--surface2); border-radius: var(--radius); padding: 12px 14px; }
+  .stat-label { font-size: 11px; color: var(--text3); margin-bottom: 5px; }
+  .stat-value { font-size: 26px; font-weight: 600; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-value.red { color: var(--red); }
+
+  /* Section label */
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.06em; text-transform: uppercase; margin: 14px 0 8px; }
+
+  /* Tire card */
+  .tire-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 13px; margin-bottom: 8px; }
+  .tire-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .tire-size { font-size: 15px; font-weight: 600; color: var(--text); }
+  .tire-serial { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .badge-stock { background: var(--green-light); color: var(--green-dark); }
+  .badge-deployed { background: var(--blue-light); color: var(--blue-dark); }
+  .badge-worn { background: var(--red-light); color: var(--red); }
+  .tire-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .tire-meta-item { font-size: 12px; color: var(--text3); }
+  .tire-meta-item b { color: var(--text); font-weight: 500; }
+  .no-data { font-size: 13px; color: var(--text3); padding: 20px 0; text-align: center; }
+
+  /* Search */
+  .search-wrap { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 0 12px; margin-bottom: 10px; }
+  .search-wrap svg { width: 16px; height: 16px; fill: none; stroke: var(--text3); stroke-width: 2; flex-shrink: 0; }
+  .search-wrap input { border: none; background: none; padding: 10px 0; font-size: 14px; color: var(--text); width: 100%; outline: none; }
+  .search-wrap input::placeholder { color: var(--text3); }
+
+  /* Form */
+  .form-section { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.06em; text-transform: uppercase; margin: 14px 0 8px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .form-group { margin-bottom: 10px; }
+  .form-label { font-size: 12px; color: var(--text2); margin-bottom: 5px; display: block; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; font-size: 14px; padding: 10px 12px;
+    border: 0.5px solid var(--border2); border-radius: var(--radius);
+    background: var(--surface); color: var(--text); outline: none;
+    appearance: none; -webkit-appearance: none;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--blue); }
+  .form-group textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+  .submit-btn {
+    width: 100%; padding: 13px; background: var(--blue); color: #fff;
+    border: none; border-radius: var(--radius); font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-top: 6px; letter-spacing: 0.01em;
+  }
+  .submit-btn:active { opacity: 0.85; transform: scale(0.99); }
+  .submit-btn.green { background: var(--green); }
+  .msg { font-size: 12px; text-align: center; margin-top: 8px; min-height: 18px; color: var(--text3); }
+  .msg.success { color: var(--green); }
+  .msg.error { color: var(--red); }
+
+  /* Settings */
+  .settings-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px; margin-bottom: 12px; }
+  .settings-card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .about-row { font-size: 13px; color: var(--text2); padding: 6px 0; border-bottom: 0.5px solid var(--border); display: flex; justify-content: space-between; }
+  .about-row:last-child { border-bottom: none; }
+  .about-val { color: var(--text3); }
+
+  /* Filter bar */
+  .filter-row { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px; }
+  .filter-chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text2); cursor: pointer; white-space: nowrap; }
+  .filter-chip.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  /* Spinning animation */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinning { animation: spin 0.8s linear infinite; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="21" y2="12"/></svg>
+    </div>
+    <div>
+      <div class="topbar-title">OTR Tire Monitor</div>
+      <div class="topbar-sub" id="topbar-sub">Balikpapan Operations</div>
+    </div>
+  </div>
+  <button class="refresh-btn" onclick="refreshData()" id="refresh-btn" aria-label="Refresh">
+    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+  </button>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showScreen('dashboard',this)" aria-label="Dashboard">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-btn" onclick="showScreen('list',this)" aria-label="Tire list">
+    <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg>
+    Tire list
+  </button>
+  <button class="nav-btn" onclick="showScreen('add',this)" aria-label="Add tire">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    Add tire
+  </button>
+  <button class="nav-btn" onclick="showScreen('settings',this)" aria-label="Settings">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<!-- DASHBOARD -->
+<div id="screen-dashboard" class="screen active">
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total tires</div>
+      <div class="stat-value" id="s-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">In stock</div>
+      <div class="stat-value green" id="s-stock">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Deployed</div>
+      <div class="stat-value blue" id="s-deployed">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Worn out</div>
+      <div class="stat-value red" id="s-worn">0</div>
+    </div>
+  </div>
+  <div class="section-label">Recent entries</div>
+  <div id="recent-list"><div class="no-data">No data yet. Add your API URL in Settings and tap refresh.</div></div>
+</div>
+
+<!-- TIRE LIST -->
+<div id="screen-list" class="screen">
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search-input" placeholder="Search size, serial, pattern..." oninput="renderList()">
+  </div>
+  <div class="filter-row">
+    <button class="filter-chip active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-chip" onclick="setFilter('In Stock',this)">In Stock</button>
+    <button class="filter-chip" onclick="setFilter('Deployed',this)">Deployed</button>
+    <button class="filter-chip" onclick="setFilter('Worn Out',this)">Worn Out</button>
+  </div>
+  <div id="tire-list"><div class="no-data">No records yet.</div></div>
+</div>
+
+<!-- ADD TIRE -->
+<div id="screen-add" class="screen">
+  <div class="form-section">Tire details</div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Tire size *</label>
+      <input type="text" id="f-size" placeholder="e.g. 27.00R49">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Serial number *</label>
+      <input type="text" id="f-serial" placeholder="SN-001">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Compound</label>
+      <input type="text" id="f-compound" placeholder="e.g. L5">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Pattern</label>
+      <input type="text" id="f-pattern" placeholder="e.g. RL-5K">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">CI</label>
+      <input type="text" id="f-ci" placeholder="e.g. 4">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Quantity</label>
+      <input type="number" id="f-qty" placeholder="1" min="1">
+    </div>
+  </div>
+  <div class="form-section">Status & allocation</div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">UOM</label>
+      <select id="f-uom">
+        <option>Unit</option>
+        <option>Pair</option>
+        <option>Set</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select id="f-status">
+        <option>In Stock</option>
+        <option>Deployed</option>
+        <option>Worn Out</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Allocation</label>
+    <input type="text" id="f-allocation" placeholder="e.g. Unit HD785-01">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Date in</label>
+    <input type="date" id="f-date">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Remarks</label>
+    <textarea id="f-remarks" placeholder="Optional notes..."></textarea>
+  </div>
+  <button class="submit-btn" onclick="submitTire()">Save tire record</button>
+  <div class="msg" id="add-msg"></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="screen-settings" class="screen">
+  <div class="settings-card">
+    <div class="settings-card-title">Google Sheet connection</div>
+    <div class="form-group">
+      <label class="form-label">Apps Script web app URL</label>
+      <input type="url" id="api-url" placeholder="https://script.google.com/macros/s/..." oninput="saveUrl()">
+    </div>
+    <button class="submit-btn green" onclick="loadFromSheet()">Connect & load data</button>
+    <div class="msg" id="settings-msg"></div>
+  </div>
+  <div class="settings-card">
+    <div class="settings-card-title">About this app</div>
+    <div class="about-row">App name <span class="about-val">OTR Tire Monitor</span></div>
+    <div class="about-row">Version <span class="about-val">1.0.0</span></div>
+    <div class="about-row">Location <span class="about-val">Balikpapan</span></div>
+    <div class="about-row">Database <span class="about-val">Google Sheets</span></div>
+    <div class="about-row">Records loaded <span class="about-val" id="about-count">0</span></div>
+  </div>
+</div>
+
+<script>
+  let tireData = [];
+  let activeFilter = 'all';
+  let API_URL = localStorage.getItem('otr_api_url') || '';
+
+  if (API_URL) {
+    document.getElementById('api-url').value = API_URL;
+  }
+
+  function showScreen(name, btn) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function saveUrl() {
+    API_URL = document.getElementById('api-url').value.trim();
+    localStorage.setItem('otr_api_url', API_URL);
+  }
+
+  function badgeClass(status) {
+    if (!status) return 'badge-stock';
+    const s = status.toLowerCase();
+    if (s.includes('deploy')) return 'badge-deployed';
+    if (s.includes('worn')) return 'badge-worn';
+    return 'badge-stock';
+  }
+
+  function tireCardHTML(t) {
+    return `<div class="tire-card">
+      <div class="tire-card-top">
+        <div>
+          <div class="tire-size">${t['Tire Size'] || '—'}</div>
+          <div class="tire-serial">S/N: ${t['Serial Number'] || '—'}</div>
+        </div>
+        <span class="badge ${badgeClass(t['Status'])}">${t['Status'] || 'In Stock'}</span>
+      </div>
+      <div class="tire-meta">
+        <div class="tire-meta-item">Compound: <b>${t['Compound'] || '—'}</b></div>
+        <div class="tire-meta-item">Pattern: <b>${t['Pattern'] || '—'}</b></div>
+        <div class="tire-meta-item">CI: <b>${t['CI'] || '—'}</b></div>
+        <div class="tire-meta-item">Qty: <b>${t['Quantity'] || '—'} ${t['UOM'] || ''}</b></div>
+        <div class="tire-meta-item">Allocation: <b>${t['Allocation'] || '—'}</b></div>
+        <div class="tire-meta-item">Date in: <b>${t['Date In'] || '—'}</b></div>
+      </div>
+    </div>`;
+  }
+
+  function renderDashboard() {
+    const total = tireData.length;
+    const stock = tireData.filter(t => (t['Status'] || '').toLowerCase().includes('stock')).length;
+    const deployed = tireData.filter(t => (t['Status'] || '').toLowerCase().includes('deploy')).length;
+    const worn = tireData.filter(t => (t['Status'] || '').toLowerCase().includes('worn')).length;
+    document.getElementById('s-total').textContent = total;
+    document.getElementById('s-stock').textContent = stock;
+    document.getElementById('s-deployed').textContent = deployed;
+    document.getElementById('s-worn').textContent = worn;
+    document.getElementById('about-count').textContent = total;
+    const recent = tireData.slice(-5).reverse();
+    document.getElementById('recent-list').innerHTML = recent.length
+      ? recent.map(t => tireCardHTML(t)).join('')
+      : '<div class="no-data">No records yet. Add tires or connect your sheet.</div>';
+  }
+
+  function setFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderList();
+  }
+
+  function renderList() {
+    const q = (document.getElementById('search-input').value || '').toLowerCase();
+    let filtered = tireData;
+    if (activeFilter !== 'all') {
+      filtered = filtered.filter(t => (t['Status'] || '') === activeFilter);
+    }
+    if (q) {
+      filtered = filtered.filter(t => Object.values(t).some(v => String(v).toLowerCase().includes(q)));
+    }
+    document.getElementById('tire-list').innerHTML = filtered.length
+      ? filtered.map(t => tireCardHTML(t)).join('')
+      : '<div class="no-data">No records match your search.</div>';
+  }
+
+  async function loadFromSheet() {
+    const url = document.getElementById('api-url').value.trim();
+    if (!url) {
+      showMsg('settings-msg', 'Please enter your Apps Script URL first.', 'error');
+      return;
+    }
+    API_URL = url;
+    localStorage.setItem('otr_api_url', url);
+    showMsg('settings-msg', 'Connecting...', '');
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      tireData = Array.isArray(data) ? data : [];
+      renderDashboard();
+      renderList();
+      document.getElementById('topbar-sub').textContent = `${tireData.length} records loaded`;
+      showMsg('settings-msg', `Successfully loaded ${tireData.length} record(s).`, 'success');
+    } catch (e) {
+      showMsg('settings-msg', 'Connection failed. Check your URL and make sure the deployment is set to "Anyone".', 'error');
+    }
+  }
+
+  async function refreshData() {
+    if (!API_URL) return;
+    const btn = document.getElementById('refresh-btn');
+    btn.querySelector('svg').classList.add('spinning');
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      tireData = Array.isArray(data) ? data : [];
+      renderDashboard();
+      renderList();
+      document.getElementById('topbar-sub').textContent = `${tireData.length} records · just now`;
+    } catch (e) {}
+    btn.querySelector('svg').classList.remove('spinning');
+  }
+
+  async function submitTire() {
+    const size = document.getElementById('f-size').value.trim();
+    const serial = document.getElementById('f-serial').value.trim();
+    if (!size || !serial) {
+      showMsg('add-msg', 'Tire size and serial number are required.', 'error');
+      return;
+    }
+    if (!API_URL) {
+      showMsg('add-msg', 'Please set your API URL in Settings first.', 'error');
+      return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const record = {
+      action: 'add',
+      'No': tireData.length + 1,
+      'Tire Size': size,
+      'Serial Number': serial,
+      'Compound': document.getElementById('f-compound').value,
+      'Pattern': document.getElementById('f-pattern').value,
+      'CI': document.getElementById('f-ci').value,
+      'Quantity': document.getElementById('f-qty').value || 1,
+      'UOM': document.getElementById('f-uom').value,
+      'Allocation': document.getElementById('f-allocation').value,
+      'Status': document.getElementById('f-status').value,
+      'Date In': document.getElementById('f-date').value || today,
+      'Remarks': document.getElementById('f-remarks').value
+    };
+    showMsg('add-msg', 'Saving...', '');
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record)
+      });
+      tireData.push(record);
+      renderDashboard();
+      renderList();
+      showMsg('add-msg', 'Tire record saved successfully!', 'success');
+      clearForm();
+    } catch (e) {
+      showMsg('add-msg', 'Save failed. Check your connection and API URL.', 'error');
+    }
+  }
+
+  function clearForm() {
+    ['f-size','f-serial','f-compound','f-pattern','f-ci','f-qty','f-allocation','f-remarks'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('f-status').value = 'In Stock';
+    document.getElementById('f-uom').value = 'Unit';
+    document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  }
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg' + (type ? ' ' + type : '');
+  }
+
+  document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+  renderDashboard();
+  if (API_URL) refreshData();
+</script>
+</body>
+</html>
